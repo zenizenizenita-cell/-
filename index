@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>買取価格検索</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --accent: #ff6b35;
+    --accent2: #ffd700;
+    --text: #f0f0f0;
+    --sub: #888;
+    --border: #333;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  header {
+    background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+    border-bottom: 2px solid var(--accent);
+    padding: 16px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  header p {
+    font-size: 11px;
+    color: var(--sub);
+    letter-spacing: 2px;
+    margin-top: 2px;
+  }
+
+  .search-box {
+    padding: 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-size: 18px;
+    font-family: 'Bebas Neue', monospace;
+    letter-spacing: 2px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type="text"]:focus { border-color: var(--accent); }
+  input[type="text"]::placeholder {
+    color: #444;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+
+  .btn-camera {
+    width: 52px;
+    height: 52px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 22px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .btn-camera:hover { border-color: var(--accent); background: #2a2a2a; }
+
+  .btn-search {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 14px 24px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+
+  .btn-search:hover { background: #ff8555; transform: translateY(-1px); }
+  .btn-search:disabled { background: #444; cursor: not-allowed; transform: none; }
+
+  /* カメラモーダル */
+  .camera-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    z-index: 200;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .camera-modal.active { display: flex; }
+
+  .camera-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .camera-modal video {
+    width: 100%;
+    border-radius: 12px;
+    border: 2px solid var(--accent);
+    display: block;
+  }
+
+  .scan-line {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    animation: scan 2s linear infinite;
+    opacity: 0.8;
+    pointer-events: none;
+  }
+
+  @keyframes scan {
+    0% { top: 20%; }
+    100% { top: 80%; }
+  }
+
+  .camera-hint {
+    color: var(--sub);
+    font-size: 12px;
+    margin-top: 12px;
+    text-align: center;
+  }
+
+  .close-btn {
+    margin-top: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+
+  /* ローディング */
+  .loading { display: none; padding: 40px 20px; text-align: center; }
+  .loading.active { display: block; }
+
+  .loading-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .loading-dots span {
+    width: 10px;
+    height: 10px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: bounce 1.4s ease-in-out infinite;
+  }
+
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  .loading p { color: var(--sub); font-size: 13px; }
+
+  /* 結果 */
+  .jan-display {
+    display: none;
+    padding: 10px 20px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--sub);
+    align-items: center;
+    gap: 8px;
+  }
+
+  .jan-display.active { display: flex; }
+  .jan-display strong { color: var(--accent); font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 1px; }
+
+  .site-block { border-bottom: 1px solid var(--border); animation: fadeIn 0.4s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .site-name {
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .site-badge {
+    font-size: 10px;
+    background: var(--accent);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 400;
+  }
+
+  .site-badge.zero { background: #444; }
+
+  .site-link {
+    font-size: 11px;
+    color: var(--sub);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 20px;
+    transition: all 0.2s;
+  }
+
+  .site-link:hover { border-color: var(--accent); color: var(--accent); }
+
+  .items-grid { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+  .item-card {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    border: 1px solid var(--border);
+  }
+
+  .item-img {
+    width: 70px;
+    height: 70px;
+    object-fit: contain;
+    border-radius: 6px;
+    background: #111;
+    flex-shrink: 0;
+  }
+
+  .item-img-placeholder {
+    width: 70px;
+    height: 70px;
+    background: #111;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .item-info { flex: 1; min-width: 0; }
+
+  .item-name {
+    font-size: 12px;
+    color: #ccc;
+    line-height: 1.5;
+    margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .item-price {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    color: var(--accent2);
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+
+  .item-price span {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    color: var(--sub);
+    margin-left: 4px;
+  }
+
+  .no-result { padding: 20px; text-align: center; color: var(--sub); font-size: 13px; }
+  .error-msg { padding: 12px 20px; color: #ff6b6b; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>買取価格検索</h1>
+  <p>KAITORI PRICE SEARCH</p>
+</header>
+
+<div class="search-box">
+  <div class="input-row">
+    <input type="text" id="janInput" placeholder="JANコードを入力 (例: 4543112701886)" inputmode="numeric">
+    <button class="btn-camera" id="cameraBtn" title="カメラでスキャン">📷</button>
+    <button class="btn-search" id="searchBtn" onclick="doSearch()">検索</button>
+  </div>
+</div>
+
+<div class="jan-display" id="janDisplay">
+  <span>検索中のJAN:</span>
+  <strong id="janDisplayValue"></strong>
+</div>
+
+<div class="loading" id="loading">
+  <div class="loading-dots"><span></span><span></span><span></span></div>
+  <p>4サイトを同時検索中...</p>
+</div>
+
+<div id="results"></div>
+
+<!-- カメラモーダル -->
+<div class="camera-modal" id="cameraModal">
+  <div class="camera-wrap">
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <div class="scan-line"></div>
+  </div>
+  <p class="camera-hint">バーコードをフレームに合わせてください</p>
+  <button class="close-btn" onclick="closeCamera()">✕ 閉じる</button>
+</div>
+
+<!-- GASのURL（デプロイし直したらここを変更） -->
+<script>
+  var GAS_URL = 'https://script.google.com/macros/s/AKfycbyDvChVGj_RTtFyNamFXMR6lLzCOqj7nkmqpDLV9Cu50zHygesBLPpUyMvAlfTNPA6W/exec';
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<script>
+  var cameraStream = null;
+
+  document.getElementById('janInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doSearch();
+  });
+
+  document.getElementById('cameraBtn').addEventListener('click', openCamera);
+
+  function openCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('このブラウザはカメラに対応していません。Chromeをお使いください。');
+      return;
+    }
+    startCamera();
+  }
+
+  function startCamera() {
+    var modal = document.getElementById('cameraModal');
+    modal.classList.add('active');
+
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    })
+    .then(function(stream) {
+      cameraStream = stream;
+      var video = document.getElementById('cameraVideo');
+      video.srcObject = stream;
+      video.play();
+
+      Quagga.init({
+        inputStream: {
+          name: 'Live',
+          type: 'LiveStream',
+          target: video,
+          constraints: { facingMode: 'environment' }
+        },
+        decoder: { readers: ['ean_reader', 'ean_8_reader'] },
+        locate: true
+      }, function(err) {
+        if (!err) Quagga.start();
+      });
+
+      Quagga.onDetected(function(result) {
+        var code = result.codeResult.code;
+        if (code && code.length >= 8) {
+          document.getElementById('janInput').value = code;
+          closeCamera();
+          setTimeout(doSearch, 300);
+        }
+      });
+    })
+    .catch(function(err) {
+      closeCamera();
+      if (err.name === 'NotAllowedError') {
+        alert('カメラの許可が必要です。\nアドレスバー横の🔒→サイトの設定→カメラを「許可」にしてください。');
+      } else {
+        alert('カメラエラー: ' + err.message);
+      }
+    });
+  }
+
+  function closeCamera() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(function(t) { t.stop(); });
+      cameraStream = null;
+    }
+    try { Quagga.stop(); } catch(e) {}
+    document.getElementById('cameraModal').classList.remove('active');
+  }
+
+  function doSearch() {
+    var jan = document.getElementById('janInput').value.trim();
+    if (!jan) { alert('JANコードを入力してください'); return; }
+    if (!/^\d{8,14}$/.test(jan)) { alert('JANコードは8〜14桁の数字で入力してください'); return; }
+
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('loading').classList.add('active');
+    document.getElementById('searchBtn').disabled = true;
+
+    var janDisplay = document.getElementById('janDisplay');
+    janDisplay.classList.add('active');
+    document.getElementById('janDisplayValue').textContent = jan;
+
+    fetch(GAS_URL + '?jan=' + encodeURIComponent(jan))
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        document.getElementById('loading').classList.remove('active');
+        document.getElementById('searchBtn').disabled = false;
+        renderResults(data, jan);
+      })
+      .catch(function(err) {
+        document.getElementById('loading').classList.remove('active');
+        document.getElementById('searchBtn').disabled = false;
+        document.getElementById('results').innerHTML = '<div class="error-msg">通信エラー: ' + err.message + '</div>';
+      });
+  }
+
+  function renderResults(data, jan) {
+    var html = '';
+    var siteEmojis = { 'まんだらけ': '🟠', '駿河屋': '🔵', 'ネットオフ': '🟢', 'あみあみ': '🔴' };
+
+    for (var i = 0; i < data.length; i++) {
+      var site = data[i];
+      var count = site.items ? site.items.length : 0;
+      var emoji = siteEmojis[site.name] || '⚪';
+
+      html += '<div class="site-block">';
+      html += '<div class="site-header">';
+      html += '<div class="site-name">' + emoji + ' ' + site.name;
+      html += '<span class="site-badge' + (count === 0 ? ' zero' : '') + '">' + count + '件</span>';
+      html += '</div>';
+      html += '<a class="site-link" href="' + site.url + '" target="_blank">サイトを開く ↗</a>';
+      html += '</div>';
+
+      if (site.error) {
+        html += '<div class="error-msg">取得エラー</div>';
+      } else if (count === 0) {
+        html += '<div class="no-result">該当商品が見つかりませんでした</div>';
+      } else {
+        html += '<div class="items-grid">';
+        for (var j = 0; j < site.items.length; j++) {
+          var item = site.items[j];
+          html += '<div class="item-card">';
+          if (item.image) {
+            html += '<img class="item-img" src="' + item.image + '" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\'" alt="">';
+            html += '<div class="item-img-placeholder" style="display:none">📦</div>';
+          } else {
+            html += '<div class="item-img-placeholder">📦</div>';
+          }
+          html += '<div class="item-info">';
+          html += '<div class="item-name">' + escapeHtml(item.name) + '</div>';
+          html += '<div class="item-price">' + escapeHtml(item.price) + '<span>買取</span></div>';
+          html += '</div></div>';
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    document.getElementById('results').innerHTML = html;
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>
